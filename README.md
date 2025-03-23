@@ -56,7 +56,7 @@ This endpoint checks if event fetching worker and event processing worker are ac
 STATUS CODE: 200
 ```json
 {
-  "Ok": null
+  "Ok": "Good"
 }
 ```
 

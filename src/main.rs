@@ -35,16 +35,15 @@ const EVENT_CHUNK_SIZE: u64 = 1000;
 const JSON_RPC_POLL_TIMEOUT: u64 = 15000;
 const ONE_HOUR: Duration = Duration::from_secs(3600);
 
-/// This worker connects to Starknet node using JSON-RPC and queries for events from Pragma price oracle.
-///
-///
-/// # Panics
-///
-/// Panics if starknet_sepolia_url is incorrect.
+/// This worker connects to Starknet node using JSON-RPC and queries for events from Pragma price oracle and send
+/// batches to the channel it get as argument.
 ///
 /// # Errors
 ///
-/// This function will return an error if .
+/// This function will return an error if:
+/// - JSON RPC url is invalid.
+/// - In case of any RPC errors
+/// - If publishing channel is closed.
 async fn fetch_events(tx: UnboundedSender<Vec<SpotEntryEvent>>) -> Result<(), String> {
     let starknet_sepolia_url: Url = Url::parse("https://starknet-sepolia.public.blastapi.io/rpc/v0_7")
         .map_err(|_| "Fetcher can't parse Node Url")?;
@@ -115,6 +114,15 @@ async fn fetch_events(tx: UnboundedSender<Vec<SpotEntryEvent>>) -> Result<(), St
     }
 }
 
+/// This worker receives events in batches store them into storage and trigger twap recalculations.
+///
+/// # Panics
+///
+/// Panics if can't acqure storage write lock.
+///
+/// # Errors
+///
+/// This function will return an error if datetime calculations failed
 async fn process_events(
     state: Arc<ApplicationState>,
     mut rx: UnboundedReceiver<Vec<SpotEntryEvent>>,
@@ -258,7 +266,7 @@ async fn health_handler(State(state): State<Arc<ApplicationState>>) -> impl Into
         );
     }
 
-    (StatusCode::OK, AppendHeaders([(CONTENT_TYPE, "application/json")]), Json(Result::Ok("good".to_string())))
+    (StatusCode::OK, AppendHeaders([(CONTENT_TYPE, "application/json")]), Json(Result::Ok("Good".to_string())))
 }
 
 #[tokio::main]
