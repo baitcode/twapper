@@ -1,42 +1,82 @@
-# Rust Template [![Github Actions][gha-badge]][gha] [![License: MIT][license-badge]][license]
+# Prerequisites
 
-[gha]: https://github.com/PaulRBerg/rust-template/actions
-[gha-badge]: https://github.com/PaulRBerg/rust-template/actions/workflows/ci.yml/badge.svg
-[license]: https://opensource.org/licenses/MIT
-[license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
+These instructions do not support Windows.
 
-A template for developing Rust projects, with sensible defaults.
+To run the application you'll need rust installed. Check that [link](https://rustup.rs/) to install [rust](https://rustup.rs/)
 
-## Getting Started
+# Run
 
-Click the [`Use this template`](https://github.com/PaulRBerg/rust-template/generate) button at the top of the page to
-create a new repository with this repo as the initial state.
+To quickly run the server use:
 
-## Features
-
-### Sensible Defaults
-
-This template comes with sensible default configurations in the following files:
-
-```text
-├── .editorconfig
-├── .gitignore
-├── .prettierrc.yml
-├── Cargo.toml
-└── rustfmt.toml
 ```
 
-### GitHub Actions
+cargo run
 
-This template comes with GitHub Actions pre-configured. Your code will be linted and tested on every push and pull
-request made to the `main` branch.
+```
 
-You can edit the CI script in [.github/workflows/ci.yml](./.github/workflows/ci.yml).
+by default server is attached to port 3000 on localhost. This is not configurable.
+Upon running server generates private and public keys for data signing. Those are stored in memory and are not persisted.
 
-## Usage
+# Test
 
-See [The Rust Book](https://doc.rust-lang.org/book/) and [The Cargo Book](https://doc.rust-lang.org/cargo/index.html).
+```
 
-## License
+cargo test
 
-This project is licensed under MIT.
+```
+
+# Build
+
+```
+
+cargo build
+
+```
+
+# API
+
+## /health
+
+This endpoint checks if event fetching worker and event processing worker are active and working. If everything is ok the response is:
+
+```
+STATUS CODE: 200
+{
+  "Ok": null
+}
+```
+
+If something is wrong the response is:
+
+```
+STATUS CODE: 500
+{
+  "Err": "MESSAGE"
+}
+```
+
+## /data
+
+This endpoint returns currently calculated twapm data along with signature and public key. If data is not ready the response would be:
+
+```
+STATUS CODE: 500
+{
+  "Err": "MESSAGE"
+}
+```
+
+If everything is ok then the response would be:
+```
+{
+    "Ok": {
+        "twap": "0000000000000000000000000000000000000000000000000000079c7402dfd3","signature":"d84d47ddb8483e5cab68d9269bdd75b47eb556c194eb2378998f752c8f6908ff5a11a7ec12414f8652c984614bf56ffec7996bd4924c29b8834e236b16ecc75f","pk":"023946664473fcf226abc6d9fc094fca7eb4795cff340064e285ea3689fda420a2"
+    }
+}
+```
+
+`twamp` is U256 integer, that was converted to big endian byte array and encoded as lower case hex string. 
+`signature` is hex encoded ECDSA signature conveted to byte array using compact raw format (Concatenated `r` and `s` values) without recovery id.
+`pk` is hex encoded public key bytes in compressed format. This is a ECDSA public key from secp256k1 curve.
+
+To check signature one would need to convert twamp hex value to big endian style byte array, use it as an input to sha256 hash function to generate digest, and then verify that digest using Public Key and Signature values. The curve used for verification is secp256k1.
