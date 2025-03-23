@@ -1,5 +1,3 @@
-#![feature(duration_constructors)]
-
 mod storage;
 
 use storage::{SpotEntryEvent, SpotEntryStorage};
@@ -24,12 +22,18 @@ use std::{
 use std::time::{Duration, SystemTime};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
-use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
+use axum::{
+    Json, Router,
+    extract::State,
+    http::{StatusCode, header::CONTENT_TYPE},
+    response::{AppendHeaders, IntoResponse},
+    routing::get,
+};
 
 const BLOCKS_IN_1_HOUR: u8 = 120;
 const EVENT_CHUNK_SIZE: u64 = 1000;
 const JSON_RPC_POLL_TIMEOUT: u64 = 15000;
-const ONE_HOUR: Duration = Duration::from_hours(1);
+const ONE_HOUR: Duration = Duration::from_secs(3600);
 
 async fn fetch_events(tx: UnboundedSender<Vec<SpotEntryEvent>>) -> Result<(), String> {
     let provider = JsonRpcClient::new(HttpTransport::new(
@@ -191,19 +195,27 @@ struct Data {
     pk: String,
 }
 
-async fn data_handler(State(state): State<Arc<ApplicationState>>) -> (StatusCode, Json<Result<Data, String>>) {
+async fn data_handler(State(state): State<Arc<ApplicationState>>) -> impl IntoResponse {
     let storage = { state.storage.read().unwrap() };
 
     let twap = if let Some(value) = storage.twap {
         value
     } else {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(Result::Err("Data not ready".to_string())));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            AppendHeaders([(CONTENT_TYPE, "application/json")]),
+            Json(Result::Err("Data not ready".to_string())),
+        );
     };
 
     let signature = if let Some(value) = storage.signature {
         value
     } else {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(Result::Err("Data not ready".to_string())));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            AppendHeaders([(CONTENT_TYPE, "application/json")]),
+            Json(Result::Err("Data not ready".to_string())),
+        );
     };
 
     let twap_bytes = [twap.high().to_be_bytes(), twap.low().to_be_bytes()].concat();
@@ -211,19 +223,31 @@ async fn data_handler(State(state): State<Arc<ApplicationState>>) -> (StatusCode
 
     let signature = signature.serialize_compact().to_lower_hex_string();
 
-    (StatusCode::OK, Json(Result::Ok(Data { twap: twap_serialised, signature, pk: state.public_key.to_string() })))
+    (
+        StatusCode::OK,
+        AppendHeaders([(CONTENT_TYPE, "application/json")]),
+        Json(Result::Ok(Data { twap: twap_serialised, signature, pk: state.public_key.to_string() })),
+    )
 }
 
-async fn health_handler(State(state): State<Arc<ApplicationState>>) -> (StatusCode, Json<Result<(), String>>) {
+async fn health_handler(State(state): State<Arc<ApplicationState>>) -> impl IntoResponse {
     if let ServiceStatus::Failed { message } = state.fetcher_status.read().unwrap().deref() {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(Err(message.into())));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            AppendHeaders([(CONTENT_TYPE, "application/json")]),
+            Json(Result::Err(message.to_string())),
+        );
     }
 
     if let ServiceStatus::Failed { message } = state.processor_status.read().unwrap().deref() {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(Err(message.into())));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            AppendHeaders([(CONTENT_TYPE, "application/json")]),
+            Json(Result::Err(message.to_string())),
+        );
     }
 
-    (StatusCode::OK, Json(Ok(())))
+    (StatusCode::OK, AppendHeaders([(CONTENT_TYPE, "application/json")]), Json(Result::Ok("good".to_string())))
 }
 
 #[tokio::main]
