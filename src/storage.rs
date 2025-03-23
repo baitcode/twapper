@@ -102,7 +102,7 @@ mod test {
     #[test]
     fn storage_ields_initialization() {
         let mut storage = SpotEntryStorage::new();
-        let (secret_key, public_key) = storage.secp.generate_keypair(&mut OsRng);
+        let (secret_key, _) = storage.secp.generate_keypair(&mut OsRng);
 
         assert_eq!(storage.signature, None);
         assert_eq!(storage.twap, None);
@@ -206,7 +206,7 @@ mod test {
 
         assert_eq!(storage.data.len(), 100);
 
-        let (secret_key, public_key) = storage.secp.generate_keypair(&mut OsRng);
+        let (secret_key, _) = storage.secp.generate_keypair(&mut OsRng);
         storage.calculate_and_sign_twap(secret_key);
 
         assert!(storage.twap.is_some());
