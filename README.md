@@ -39,8 +39,8 @@ cargo build
 
 This endpoint checks if event fetching worker and event processing worker are active and working. If everything is ok the response is:
 
-```json
 STATUS CODE: 200
+```json
 {
   "Ok": null
 }
@@ -48,8 +48,8 @@ STATUS CODE: 200
 
 If something is wrong the response is:
 
-```json
 STATUS CODE: 500
+```json
 {
   "Err": "MESSAGE"
 }
@@ -59,14 +59,16 @@ STATUS CODE: 500
 
 This endpoint returns currently calculated twapm data along with signature and public key. If data is not ready the response would be:
 
-```json
 STATUS CODE: 500
+```json
 {
   "Err": "MESSAGE"
 }
 ```
 
 If everything is ok then the response would be:
+
+STATUS CODE: 200
 ```json
 {
     "Ok": {
