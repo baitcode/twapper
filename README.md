@@ -8,7 +8,7 @@ To run the application you'll need rust installed. Check that [link](https://rus
 
 To quickly run the server use:
 
-```
+```bash
 
 cargo run
 
@@ -19,7 +19,7 @@ Upon running server generates private and public keys for data signing. Those ar
 
 # Test
 
-```
+```bash
 
 cargo test
 
@@ -27,7 +27,7 @@ cargo test
 
 # Build
 
-```
+```bash
 
 cargo build
 
@@ -39,7 +39,7 @@ cargo build
 
 This endpoint checks if event fetching worker and event processing worker are active and working. If everything is ok the response is:
 
-```
+```json
 STATUS CODE: 200
 {
   "Ok": null
@@ -48,7 +48,7 @@ STATUS CODE: 200
 
 If something is wrong the response is:
 
-```
+```json
 STATUS CODE: 500
 {
   "Err": "MESSAGE"
@@ -59,7 +59,7 @@ STATUS CODE: 500
 
 This endpoint returns currently calculated twapm data along with signature and public key. If data is not ready the response would be:
 
-```
+```json
 STATUS CODE: 500
 {
   "Err": "MESSAGE"
@@ -67,10 +67,12 @@ STATUS CODE: 500
 ```
 
 If everything is ok then the response would be:
-```
+```json
 {
     "Ok": {
-        "twap": "0000000000000000000000000000000000000000000000000000079c7402dfd3","signature":"d84d47ddb8483e5cab68d9269bdd75b47eb556c194eb2378998f752c8f6908ff5a11a7ec12414f8652c984614bf56ffec7996bd4924c29b8834e236b16ecc75f","pk":"023946664473fcf226abc6d9fc094fca7eb4795cff340064e285ea3689fda420a2"
+        "twap": "0000000000000000000000000000000000000000000000000000079c7402dfd3",
+        "signature":"d84d47ddb8483e5cab68d9269bdd75b47eb556c194eb2378998f752c8f6908ff5a11a7ec12414f8652c984614bf56ffec7996bd4924c29b8834e236b16ecc75f",
+        "pk":"023946664473fcf226abc6d9fc094fca7eb4795cff340064e285ea3689fda420a2"
     }
 }
 ```
