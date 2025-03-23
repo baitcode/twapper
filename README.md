@@ -33,6 +33,20 @@ cargo build
 
 ```
 
+# Module structure
+
+`storage.rs`: 
+
+has code connected to storing events, twamp calculation and data signing.
+
+`main.rs`: 
+
+has fetch_events worker, that connects to JSON RPC and fetches SubmittedSpotEntry events for recent 120 blocks (roughtly ONE hour). Filters out all pairs except for BTC/USD and passes batch to processor.
+
+has process_events worker, that takes recent batch of event ads them to storage, cleans storage up then calculates twapm and generates signature.
+
+has definitions for axum server with `data` and `health` headers.
+
 # API
 
 ## /health
