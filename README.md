@@ -93,7 +93,7 @@ STATUS CODE: 200
 }
 ```
 
-`twamp` is U256 integer, that was converted to big endian byte array and encoded as lower case hex string. 
+`twamp` is an encoded `Fixed Point` value. Value is represented by bytes in a big endian fashion. This value should always be less than 256 bits long, first 192 bit is reserved for quotient, last 64 bits for remainder. Bytes are encoded using lowercase hex encoding. Internally it is represented by `Big Integer` type.
 
 `signature` is hex encoded ECDSA signature conveted to byte array using compact raw format (Concatenated `r` and `s` values) without recovery id.
 

@@ -35,10 +35,20 @@ const EVENT_CHUNK_SIZE: u64 = 1000;
 const JSON_RPC_POLL_TIMEOUT: u64 = 15000;
 const ONE_HOUR: Duration = Duration::from_secs(3600);
 
+/// This worker connects to Starknet node using JSON-RPC and queries for events from Pragma price oracle.
+///
+///
+/// # Panics
+///
+/// Panics if starknet_sepolia_url is incorrect.
+///
+/// # Errors
+///
+/// This function will return an error if .
 async fn fetch_events(tx: UnboundedSender<Vec<SpotEntryEvent>>) -> Result<(), String> {
-    let provider = JsonRpcClient::new(HttpTransport::new(
-        Url::parse("https://starknet-sepolia.public.blastapi.io/rpc/v0_7").unwrap(),
-    ));
+    let starknet_sepolia_url: Url = Url::parse("https://starknet-sepolia.public.blastapi.io/rpc/v0_7")
+        .map_err(|_| "Fetcher can't parse Node Url")?;
+    let provider = JsonRpcClient::new(HttpTransport::new(starknet_sepolia_url));
 
     let btc_usd_pair_id: Felt = Felt::from_bytes_be_slice("BTC/USD".as_bytes());
     let oracle_contract_address =
@@ -86,10 +96,11 @@ async fn fetch_events(tx: UnboundedSender<Vec<SpotEntryEvent>>) -> Result<(), St
             .await
             .map_err(|_| "Can't fetch events")?;
 
-        let events = event_page
+        let events: Vec<SpotEntryEvent> = event_page
             .events
             .iter()
-            .map(|event| SpotEntryEvent::from_event_data(&event.data))
+            .map(|event| SpotEntryEvent::try_from(event.data.as_slice()))
+            .filter_map(|res| res.ok())
             .filter(|event| event.pair_id == btc_usd_pair_id)
             .collect();
 
@@ -198,7 +209,7 @@ struct Data {
 async fn data_handler(State(state): State<Arc<ApplicationState>>) -> impl IntoResponse {
     let storage = { state.storage.read().unwrap() };
 
-    let twap = if let Some(value) = storage.twap {
+    let twap = if let Some(value) = storage.twap.clone() {
         value
     } else {
         return (
@@ -218,7 +229,7 @@ async fn data_handler(State(state): State<Arc<ApplicationState>>) -> impl IntoRe
         );
     };
 
-    let twap_bytes = [twap.high().to_be_bytes(), twap.low().to_be_bytes()].concat();
+    let twap_bytes = [twap.to_bytes_be()].concat();
     let twap_serialised = twap_bytes.to_lower_hex_string();
 
     let signature = signature.serialize_compact().to_lower_hex_string();

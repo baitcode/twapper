@@ -1,21 +1,26 @@
+use num_bigint::BigUint;
 use secp256k1::{
     Message, Secp256k1, SecretKey,
     ecdsa::Signature,
     hashes::{Hash, sha256},
 };
-use starknet::core::types::{Felt, U256};
+use starknet::core::types::Felt;
 use std::{collections::HashMap, fmt::Debug};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct SpotEntryEvent {
     timestamp: u64,
-    price: U256,
+    price: u128,
     pub pair_id: Felt,
 }
 
-impl SpotEntryEvent {
-    pub fn from_event_data(data: &[Felt]) -> SpotEntryEvent {
-        SpotEntryEvent { timestamp: data[0].try_into().unwrap(), price: data[3].into(), pair_id: data[4] }
+impl TryFrom<&[Felt]> for SpotEntryEvent {
+    type Error = String;
+
+    fn try_from(value: &[Felt]) -> Result<Self, Self::Error> {
+        let timestamp = value[0].try_into().map_err(|_| "Can't convert timestamp for event")?;
+        let price = value[3].try_into().map_err(|_| "Can't convert price for event")?;
+        Ok(SpotEntryEvent { timestamp, price, pair_id: value[4] })
     }
 }
 
@@ -34,7 +39,7 @@ impl Ord for SpotEntryEvent {
 pub struct SpotEntryStorage {
     secp: Secp256k1<secp256k1::All>,
     data: HashMap<u64, SpotEntryEvent>,
-    pub twap: Option<U256>,
+    pub twap: Option<BigUint>,
     pub signature: Option<Signature>,
 }
 
@@ -61,8 +66,8 @@ impl SpotEntryStorage {
         events.sort_by_key(|e| e.timestamp);
 
         let mut last_timestamp = 0_u64;
-        let mut numenator_aggregate: U256 = 0_u64.into();
-        let mut divisor_aggregate: u64 = 0_u64;
+        let mut numenator_aggregate = BigUint::from(0_u128);
+        let mut divisor_aggregate = 0_u64;
 
         for event in events {
             if last_timestamp == 0 {
@@ -72,7 +77,8 @@ impl SpotEntryStorage {
 
             let timedelta = event.timestamp - last_timestamp;
             last_timestamp = event.timestamp;
-            numenator_aggregate += event.price * timedelta.into();
+
+            numenator_aggregate += event.price * u128::from(timedelta);
             divisor_aggregate += timedelta;
         }
 
@@ -80,11 +86,10 @@ impl SpotEntryStorage {
             return;
         }
 
-        // TODO: precision loss. U256 is not needed f64 would be enough.
-        let twap = numenator_aggregate / divisor_aggregate.into();
+        let twap: BigUint = (numenator_aggregate << 64) / divisor_aggregate;
+        let twap_bytes = twap.to_bytes_be();
         self.twap = Some(twap);
 
-        let twap_bytes = [twap.high().to_be_bytes(), twap.low().to_be_bytes()].concat();
         let digest = sha256::Hash::hash(twap_bytes.as_slice());
         let message = Message::from_digest(digest.to_byte_array());
         self.signature = Some(self.secp.sign_ecdsa(&message, &secret_key));
@@ -199,7 +204,7 @@ mod test {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap();
 
-            let event = event_factory(ts.as_secs(), 100_u64.into());
+            let event = event_factory(ts.as_secs(), 100_u128);
 
             storage.append(event);
         }
@@ -210,7 +215,7 @@ mod test {
         storage.calculate_and_sign_twap(secret_key);
 
         assert!(storage.twap.is_some());
-        assert_eq!(storage.twap.unwrap(), U256::from(100_u64));
+        assert_eq!(storage.twap.unwrap() >> 64, BigUint::from(100_u64));
     }
 
     #[test]
@@ -252,6 +257,6 @@ mod test {
         storage.calculate_and_sign_twap(secret_key);
 
         assert!(storage.twap.is_some());
-        assert_eq!(storage.twap.unwrap(), U256::from(twap));
+        assert_eq!(storage.twap.unwrap() >> 64, BigUint::from(twap));
     }
 }
