@@ -80,7 +80,9 @@ STATUS CODE: 200
 ```
 
 `twamp` is U256 integer, that was converted to big endian byte array and encoded as lower case hex string. 
+
 `signature` is hex encoded ECDSA signature conveted to byte array using compact raw format (Concatenated `r` and `s` values) without recovery id.
+
 `pk` is hex encoded public key bytes in compressed format. This is a ECDSA public key from secp256k1 curve.
 
 To check signature one would need to convert twamp hex value to big endian style byte array, use it as an input to sha256 hash function to generate digest, and then verify that digest using Public Key and Signature values. The curve used for verification is secp256k1.
