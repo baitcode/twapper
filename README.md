@@ -47,12 +47,13 @@ cargo test
 cargo build
 ```
 
-Or using Docker:
+# Local Docker
 
-If you are using buildx:
+Make sure you have buildx working
 
 ```bash
-docker buildx build . --load -t moo:latest
+docker build --target release -t twapper:latest .
+docker run -p 3000:3000 -d twapper:latest
 ```
 
 # Module structure
