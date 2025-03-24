@@ -1,10 +1,10 @@
-mod state;
+mod configuration;
 mod storage;
 mod workers;
 
+use configuration::{ApplicationConfiguration, ServiceStatus};
 use secp256k1::hashes::hex::DisplayHex;
 use serde::Serialize;
-use state::{ApplicationState, ServiceStatus};
 use std::{ops::Deref, sync::Arc};
 use storage::SpotEntryEvent;
 use tokio::sync::mpsc;
@@ -26,7 +26,7 @@ struct Data {
     pk: String,
 }
 
-async fn data_handler(State(state): State<Arc<ApplicationState>>) -> impl IntoResponse {
+async fn data_handler(State(state): State<Arc<ApplicationConfiguration>>) -> impl IntoResponse {
     let storage = { state.storage.read().unwrap() };
 
     let twap = if let Some(value) = storage.twap.clone() {
@@ -61,7 +61,7 @@ async fn data_handler(State(state): State<Arc<ApplicationState>>) -> impl IntoRe
     )
 }
 
-async fn health_handler(State(state): State<Arc<ApplicationState>>) -> impl IntoResponse {
+async fn health_handler(State(state): State<Arc<ApplicationConfiguration>>) -> impl IntoResponse {
     if let ServiceStatus::Failed { message } = state.fetcher_status.read().unwrap().deref() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -83,7 +83,7 @@ async fn health_handler(State(state): State<Arc<ApplicationState>>) -> impl Into
 
 #[tokio::main]
 async fn main() {
-    let app_state = match ApplicationState::new() {
+    let app_state = match ApplicationConfiguration::new() {
         Ok(state) => Arc::new(state),
         Err(message) => panic!("{}", message),
     };
@@ -93,13 +93,15 @@ async fn main() {
         .route("/health", get(health_handler))
         .with_state(app_state.clone());
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let addr = format!("{}:{}", app_state.host, app_state.port);
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
 
     let (tx, rx) = mpsc::unbounded_channel::<Vec<SpotEntryEvent>>();
 
     let fetching_handle = tokio::spawn(app_state.clone().start_fetcher(tx));
     let processing_handle = tokio::spawn(app_state.clone().start_processor(rx));
 
+    println!("Starting server on address: {}", addr);
     if let Err(z) = axum::serve(listener, app).await {
         panic!("{z}");
     };

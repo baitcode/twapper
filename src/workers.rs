@@ -1,4 +1,4 @@
-use crate::{ServiceStatus, state::ApplicationState, storage::SpotEntryEvent};
+use crate::{ServiceStatus, configuration::ApplicationConfiguration, storage::SpotEntryEvent};
 use starknet::{
     core::{
         types::{BlockId, EventFilter, Felt, MaybePendingBlockWithTxHashes},
@@ -108,7 +108,7 @@ async fn fetch_events(tx: UnboundedSender<Vec<SpotEntryEvent>>) -> Result<(), St
 ///
 /// This function will return an error if datetime calculations failed
 async fn process_events(
-    state: Arc<ApplicationState>,
+    state: Arc<ApplicationConfiguration>,
     mut rx: UnboundedReceiver<Vec<SpotEntryEvent>>,
 ) -> Result<(), String> {
     loop {
@@ -134,7 +134,7 @@ pub trait WorkerRunner {
     async fn start_processor(self, rx: UnboundedReceiver<Vec<SpotEntryEvent>>) -> Result<(), String>;
 }
 
-impl WorkerRunner for Arc<ApplicationState> {
+impl WorkerRunner for Arc<ApplicationConfiguration> {
     async fn start_fetcher(self, tx: UnboundedSender<Vec<SpotEntryEvent>>) -> Result<(), String> {
         let result = fetch_events(tx).await;
 

@@ -47,6 +47,14 @@ cargo test
 cargo build
 ```
 
+Or using Docker:
+
+If you are using buildx:
+
+```bash
+docker buildx build . --load -t moo:latest
+```
+
 # Module structure
 
 `storage.rs`: 
@@ -71,7 +79,6 @@ has code for process_events worker, that takes recent batch of event ads them to
 `main.rs`: 
 
 has api code and axum application logic.
-
 
 has definitions for axum server with `data` and `health` headers.
 
