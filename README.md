@@ -15,22 +15,36 @@ cargo run
 ```
 
 by default server is attached to port 3000 on localhost. This is not configurable.
-Upon running server generates private and public keys for data signing. Those are stored in memory and are not persisted.
+
+If you want to supply your own public key use `PUBLIC_KEY` enviroment variable. Value should be lower hex encoded public key bytes in compressed form (33 bytes).
+If you want to supply your own secret key use `SECRET_KEY` enviroment variable. Value should be lower hex encoded secret key bytes. (32 bytes)
+
+NOTE: If you supply `SECRET_KEY` only, public key will be derived from it.
+
+WARNING: If you supply `PUBLIC_KEY` only, key validation will fail, as servere will generate new `SECRET_KEY` and it's highly unlikely that those would match.
+
+Here are keypairs for testing: 
+
+```
+PUBLIC_KEY="0252dd2b8b729ab74497c172887b4cc56b427dcf0bf0368a3f93b5ff79b3f09410"
+SECRET_KEY="d150f1224d8c75c25f186d0d18c058201a4f6e9ca13237ade9eb9988ef391de5"
+```
+
+```
+PUBLIC_KEY="02b74d0beb364934725776ff37f7c8839e772bfe28089709fa3c6f33debda9df02"
+SECRET_KEY="05981a8e771720be8d9fbbe0937d4809304a3450a8e9ef2c494af81753f79ca9"
+```
 
 # Test
 
 ```bash
-
 cargo test
-
 ```
 
 # Build
 
 ```bash
-
 cargo build
-
 ```
 
 # Module structure

@@ -2,7 +2,16 @@ mod storage;
 
 use storage::{SpotEntryEvent, SpotEntryStorage};
 
-use secp256k1::{PublicKey, Secp256k1, SecretKey, hashes::hex::DisplayHex, rand::rngs::OsRng};
+use secp256k1::{
+    Message, PublicKey, Secp256k1, SecretKey,
+    constants::PUBLIC_KEY_SIZE,
+    hashes::{
+        Hash,
+        hex::{Case, DisplayHex, FromHex},
+        sha256,
+    },
+    rand::rngs::OsRng,
+};
 use serde::Serialize;
 use starknet::{
     core::{
@@ -15,6 +24,7 @@ use starknet::{
     },
 };
 use std::{
+    env,
     ops::Deref,
     sync::{Arc, RwLock},
 };
@@ -131,7 +141,7 @@ async fn process_events(
         let hour_ago = SystemTime::now().checked_sub(ONE_HOUR).ok_or("Can't calculate now - hour")?;
 
         let duration_since_hour_ago =
-            hour_ago.duration_since(SystemTime::UNIX_EPOCH).map_err(|_| "Can't calcualte duration")?;
+            hour_ago.duration_since(SystemTime::UNIX_EPOCH).map_err(|_| "Can't calculate duration")?;
 
         if let Some(events) = rx.recv().await {
             // Storage changes in that block
@@ -161,17 +171,41 @@ struct ApplicationState {
 }
 
 impl ApplicationState {
-    fn new() -> ApplicationState {
+    fn new() -> Result<ApplicationState, String> {
         let secp: Secp256k1<secp256k1::All> = Secp256k1::gen_new();
-        let (secret_key, public_key) = secp.generate_keypair(&mut OsRng);
 
-        ApplicationState {
+        let secret_key = if let Ok(key) = env::var("SECRET_KEY") {
+            let secret_bytes = <[u8; 32]>::from_hex(key.as_str()).map_err(|_| "Invalid env var SECRET_KEY")?;
+            SecretKey::from_byte_array(&secret_bytes).map_err(|_| "Secret key format invalid")?
+        } else {
+            let (secret_key, _) = secp.generate_keypair(&mut OsRng);
+            secret_key
+        };
+
+        let public_key = if let Ok(key) = env::var("PUBLIC_KEY") {
+            let public_bytes =
+                <[u8; PUBLIC_KEY_SIZE]>::from_hex(key.as_str()).map_err(|_| "Invalid env var PUBLIC_KEY")?;
+            PublicKey::from_byte_array_compressed(&public_bytes).map_err(|_| "Public key format invalid")?
+        } else {
+            PublicKey::from_secret_key(&secp, &secret_key)
+        };
+
+        let digest = sha256::Hash::hash([0_u8, 0_u8, 0_u8, 0_u8].as_slice());
+        let message = Message::from_digest(digest.to_byte_array());
+        let signature = secp.sign_ecdsa(&message, &secret_key);
+
+        println!("pk: {:#?}", public_key.serialize().to_hex_string(Case::Lower));
+        println!("sk: {:#?}", secret_key.secret_bytes().to_hex_string(Case::Lower));
+
+        secp.verify_ecdsa(&message, &signature, &public_key).map_err(|_| "Public and Secret keys do not match.")?;
+
+        Ok(ApplicationState {
             secret_key,
             public_key,
             storage: RwLock::new(SpotEntryStorage::new()),
             fetcher_status: RwLock::new(ServiceStatus::Running),
             processor_status: RwLock::new(ServiceStatus::Running),
-        }
+        })
     }
 }
 
@@ -271,7 +305,10 @@ async fn health_handler(State(state): State<Arc<ApplicationState>>) -> impl Into
 
 #[tokio::main]
 async fn main() {
-    let app_state = Arc::new(ApplicationState::new());
+    let app_state = match ApplicationState::new() {
+        Ok(state) => Arc::new(state),
+        Err(message) => panic!("{}", message),
+    };
 
     let app = Router::new()
         .route("/data", get(data_handler))
